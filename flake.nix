@@ -62,7 +62,12 @@
                 waylandClient = "${lib.getLib pkgs.wayland}/lib/libwayland-client.so.0";
                 waylandCursor = "${lib.getLib pkgs.wayland}/lib/libwayland-cursor.so.0";
                 preload = lib.concatStringsSep ":" [ waylandClient waylandCursor ];
+                appimageContents = pkgs.appimageTools.extractType2 { inherit pname version src; };
               in ''
+                # Install icon
+                mkdir -p $out/share/pixmaps
+                cp ${appimageContents}/turtle-wow.png $out/share/pixmaps/${pname}.png
+
                 # Create .desktop file for system integration
                 mkdir -p $out/share/applications
                 cat > $out/share/applications/${pname}.desktop <<EOF
