@@ -10,8 +10,14 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -20,50 +26,56 @@
         lib = pkgs.lib;
 
         pname = "turtle-wow";
-        version = "2025-08-27";
+        version = "2025-12-20";
 
-      in {
+      in
+      {
         packages = {
           default = pkgs.appimageTools.wrapType2 rec {
             inherit pname version;
             name = pname;
 
             src = pkgs.fetchurl {
-              url = "https://turtle-eu.b-cdn.net/client/9BEF2C29BE14CF2C26030B086DFC854DB56096DDEAABE31D33BFC6B131EC5529/TurtleWoW.AppImage";
+              url = "https://eucdn.turtlecraft.gg/9BEF2C29BE14CF2C26030B086DFC854DB56096DDEAABE31D33BFC6B131EC5529/TurtleWoW.AppImage";
               hash = "sha256-/4qRkc6m+F0djc0YoIfMZxwHaZsrowkyc9O6jS5fUEk=";
             };
 
             # HACK: The AppImage contains absolute paths to /lib for Wayland.
             # We preload libraries from the Nix store to work around this issue.
-            extraPkgs = pkgs: with pkgs; [
-              # Wayland dependencies
-              wayland
-              libGL
-              libglvnd
+            extraPkgs =
+              pkgs: with pkgs; [
+                # Wayland dependencies
+                wayland
+                libGL
+                libglvnd
 
-              # Audio
-              libpulseaudio
-              alsa-lib
+                # Audio
+                libpulseaudio
+                alsa-lib
 
-              # Common game dependencies
-              xorg.libX11
-              xorg.libXcursor
-              xorg.libXrandr
-              xorg.libXi
-              mesa
+                # Common game dependencies
+                xorg.libX11
+                xorg.libXcursor
+                xorg.libXrandr
+                xorg.libXi
+                mesa
 
-              # Fonts
-              freetype
-              fontconfig
-            ];
+                # Fonts
+                freetype
+                fontconfig
+              ];
 
             extraInstallCommands =
               let
                 waylandClient = "${lib.getLib pkgs.wayland}/lib/libwayland-client.so.0";
                 waylandCursor = "${lib.getLib pkgs.wayland}/lib/libwayland-cursor.so.0";
-                preload = lib.concatStringsSep ":" [ waylandClient waylandCursor ];
+                preload = lib.concatStringsSep ":" [
+                  waylandClient
+                  waylandCursor
+                ];
                 appimageContents = pkgs.appimageTools.extractType2 { inherit pname version src; };
-              in ''
+              in
+              ''
                 # Install icon
                 mkdir -p $out/share/pixmaps
                 cp ${appimageContents}/turtle-wow.png $out/share/pixmaps/${pname}.png
@@ -117,14 +129,22 @@
           '';
         };
       }
-    ) // {
+    )
+    // {
       # Information for NixOS modules
-      nixosModules.default = { config, lib, pkgs, ... }: {
-        options.programs.turtle-wow.enable = lib.mkEnableOption "Turtle WoW client";
+      nixosModules.default =
+        {
+          config,
+          lib,
+          pkgs,
+          ...
+        }:
+        {
+          options.programs.turtle-wow.enable = lib.mkEnableOption "Turtle WoW client";
 
-        config = lib.mkIf config.programs.turtle-wow.enable {
-          environment.systemPackages = [ self.packages.${pkgs.system}.default ];
+          config = lib.mkIf config.programs.turtle-wow.enable {
+            environment.systemPackages = [ self.packages.${pkgs.system}.default ];
+          };
         };
-      };
     };
 }
