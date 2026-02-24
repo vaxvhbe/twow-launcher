@@ -20,10 +20,7 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          config.allowUnfree = true;
-        };
+        pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
 
         pname = "turtle-wow";
