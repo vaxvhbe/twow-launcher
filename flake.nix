@@ -44,17 +44,17 @@
             gdk-pixbuf
             pango
             cairo
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXrandr
-            xorg.libXi
-            xorg.libXext
-            xorg.libXrender
-            xorg.libXfixes
-            xorg.libXcomposite
-            xorg.libXdamage
-            xorg.libXtst
-            xorg.libXScrnSaver
+            libx11
+            libxcursor
+            libxrandr
+            libxi
+            libxext
+            libxrender
+            libxfixes
+            libxcomposite
+            libxdamage
+            libxtst
+            libxscrnsaver
             libxkbcommon
             mesa
             libglvnd
@@ -76,7 +76,7 @@
             jq
 
             # Wine for running WoW.exe
-            wineWowPackages.stable
+            wineWow64Packages.stable
             winetricks
           ];
 
@@ -87,12 +87,12 @@
             mesa
             libglvnd
             udev
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXrandr
-            xorg.libXi
-            xorg.libXext
-            xorg.libXrender
+            libx11
+            libxcursor
+            libxrandr
+            libxi
+            libxext
+            libxrender
             freetype
             fontconfig
             openssl
