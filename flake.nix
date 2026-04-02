@@ -1,11 +1,6 @@
 {
   description = "Turtle WoW - Classic World of Warcraft private server client";
 
-  nixConfig = {
-    extra-substituters = [ "https://cache.nixos.org" ];
-    extra-trusted-public-keys = [ "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" ];
-  };
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
@@ -24,11 +19,11 @@
         lib = pkgs.lib;
 
         pname = "turtle-wow";
-        version = "2025-12-20";
+        version = "2026-04-02";
 
         appImageSrc = pkgs.fetchurl {
-          url = "https://eucdn.turtlecraft.gg/47BA21AEF6EF008C5852157A7C47A852D51EF9B3AF8AA74DD78677BF8F05A629/TurtleWoW.AppImage";
-          hash = "sha256-R7ohrvbvAIxYUhV6fEeoUtUe+bOviqdN14Z3v48Fpik=";
+          url = "https://turtle-eu.b-cdn.net/client/F674FA93D4C94E59ED7E23E0CC2C550A3AB9CBABCD822094B0D9B6EC43E42AFA/TurtleWoW.AppImage";
+          hash = "sha256-9nT6k9TJTlntfiPgzCxVCjq5y6vNgiCUsNm27EPkKvo=";
         };
 
         # Shared package lists
@@ -63,7 +58,6 @@
             libxkbcommon
             mesa
             libglvnd
-            libGL
             wayland
             libpulseaudio
             gtk3
@@ -92,7 +86,6 @@
             libpulseaudio
             mesa
             libglvnd
-            libGL
             udev
             xorg.libX11
             xorg.libXcursor
@@ -118,14 +111,17 @@
             APPIMAGE_SRC="${appImageSrc}"
             INSTALL_DIR="$HOME/.cache/turtle-wow-install"
 
-            # 1. Extract and setup if needed
-            if [ ! -d "$INSTALL_DIR" ]; then
+            # 1. Extract and setup if needed (re-extract on version change)
+            VERSION_FILE="$INSTALL_DIR/.appimage-src"
+            if [ ! -d "$INSTALL_DIR" ] || [ "$(cat "$VERSION_FILE" 2>/dev/null)" != "$APPIMAGE_SRC" ]; then
                 echo "🐢 Extracting Turtle WoW..."
+                rm -rf "$INSTALL_DIR"
                 mkdir -p "$INSTALL_DIR"
                 cd "$INSTALL_DIR"
                 cp "$APPIMAGE_SRC" ./TurtleWoW.AppImage
                 chmod +x ./TurtleWoW.AppImage
                 ./TurtleWoW.AppImage --appimage-extract > /dev/null
+                echo "$APPIMAGE_SRC" > "$VERSION_FILE"
             fi
 
             cd "$INSTALL_DIR/squashfs-root"
@@ -135,16 +131,10 @@
             ln -sf /lib/libbz2.so.1 shared/lib/libbz2.so.1.0
             ln -sf /lib64/ld-linux-x86-64.so.2 shared/lib/ld-linux-x86-64.so.2
 
-            # Install icon to user local share so the desktop file can find it
-            if [ -f "turtle-wow.png" ]; then
-                mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps"
-                cp "turtle-wow.png" "$HOME/.local/share/icons/hicolor/256x256/apps/turtle-wow.png"
-                # Update icon cache if possible (silently)
-                gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
-            elif [ -f ".DirIcon" ]; then
-                mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps"
-                cp ".DirIcon" "$HOME/.local/share/icons/hicolor/256x256/apps/turtle-wow.png"
-            fi
+            # Force wine symlinks in common locations inside FHS
+            mkdir -p /usr/bin
+            ln -sf $(which wine) /usr/bin/wine 2>/dev/null || true
+            ln -sf $(which wine) /bin/wine 2>/dev/null || true
 
             # Prune bundled libraries that conflict with NixOS system libraries
             find . -name "libc.so.6" -delete
@@ -171,45 +161,52 @@
             export GIO_MODULE_DIR="${pkgs.glib-networking}/lib/gio/modules"
             export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS"
             export APPIMAGE_SILENT_INSTALL=1
+            export WINEDLLOVERRIDES="mscoree,mshtml="
 
-            # Optimize Wine for WoW
-            export WINEDLLOVERRIDES="mscoree,mshtml=" # Disable mono/gecko popups
+            # 4. Install Icons & Desktop Entries (Self-Installing)
+            mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps"
+            mkdir -p "$HOME/.local/share/applications"
+
+            # Icon
+            if [ -f "turtle-wow.png" ]; then
+                cp "turtle-wow.png" "$HOME/.local/share/icons/hicolor/256x256/apps/turtle-wow.png"
+            elif [ -f ".DirIcon" ]; then
+                cp ".DirIcon" "$HOME/.local/share/icons/hicolor/256x256/apps/turtle-wow.png"
+            fi
+
+            # Launcher Desktop File
+            cat > "$HOME/.local/share/applications/turtle-wow.desktop" <<EOF
+            [Desktop Entry]
+            Type=Application
+            Name=Turtle WoW Launcher
+            Comment=Classic World of Warcraft private server client
+            Exec=nix run "${builtins.toString self}#default"
+            Icon=turtle-wow
+            Categories=Game;
+            Terminal=false
+            EOF
+
+            # Game Desktop File
+            cat > "$HOME/.local/share/applications/turtle-wow-game.desktop" <<EOF
+            [Desktop Entry]
+            Type=Application
+            Name=Turtle WoW (Game)
+            Comment=Launch WoW directly via Wine
+            Exec=nix run "${builtins.toString self}#game"
+            Icon=turtle-wow
+            Categories=Game;
+            Terminal=false
+            EOF
+
+            # Force update desktop database
+            update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
             echo "🐢 Starting Turtle WoW Launcher..."
             chmod +x bin/turtle-wow
             ./bin/turtle-wow "$@"
           '';
-
-          extraInstallCommands = ''
-            mkdir -p $out/share/applications
-
-            # Launcher Desktop File
-            cat > $out/share/applications/${pname}.desktop <<EOF
-            [Desktop Entry]
-            Type=Application
-            Name=Turtle WoW Launcher
-            Comment=Classic World of Warcraft private server client
-            Exec=${pname} %U
-            Icon=turtle-wow
-            Categories=Game;
-            Terminal=false
-            EOF
-
-            # Direct Game Desktop File
-            cat > $out/share/applications/${pname}-game.desktop <<EOF
-            [Desktop Entry]
-            Type=Application
-            Name=Turtle WoW (Game)
-            Comment=Launch WoW directly via Wine
-            Exec=turtle-wow-game %U
-            Icon=turtle-wow
-            Categories=Game;
-            Terminal=false
-            EOF
-          '';
         };
 
-        # Helper to run WoW directly with Wine (bypassing the launcher if needed)
         wineGameEnv = pkgs.buildFHSEnv {
           name = "turtle-wow-game";
           targetPkgs = commonTargetPkgs;
@@ -217,18 +214,15 @@
           runScript = pkgs.writeScript "run-wow" ''
             #!/bin/bash
 
-            # Try to read preference file
             PREFS_FILE="$HOME/.local/share/turtle-wow/preferences.json"
             GAME_DIR=""
 
             if [ -f "$PREFS_FILE" ]; then
-                echo "Reading preferences from $PREFS_FILE..."
                 GAME_DIR=$(jq -r '.clientDir // empty' "$PREFS_FILE" 2>/dev/null)
             fi
 
             if [ -z "$GAME_DIR" ] || [ "$GAME_DIR" == "null" ]; then
                 echo "Error: No client directory found in $PREFS_FILE"
-                echo "Please set the game path in the launcher settings first."
                 exit 1
             fi
 
@@ -236,16 +230,12 @@
 
             if [ ! -f "$EXE" ]; then
                 echo "Error: WoW.exe not found at $EXE"
-                echo "Check your launcher preferences or run the launcher to download the game."
                 exit 1
             fi
 
             echo "🍷 Starting WoW.exe with Wine..."
             cd "$GAME_DIR"
-
-            # Wine configuration for better performance
             export WINEDLLOVERRIDES="mscoree,mshtml="
-
             wine WoW.exe "$@"
           '';
         };
