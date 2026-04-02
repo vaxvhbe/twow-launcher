@@ -2,7 +2,7 @@
   description = "Turtle WoW - Classic World of Warcraft private server client";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -76,7 +76,7 @@
             jq
 
             # Wine for running WoW.exe
-            wineWow64Packages.stable
+            wineWowPackages.stable
             winetricks
           ];
 
